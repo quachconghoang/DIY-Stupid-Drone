@@ -34,14 +34,30 @@ cv::String path = "../icl_snippet/*.png";
 //
 //}
 
-int main() 
+int main()
+{
+//    auto options = torch::TensorOptions()
+//                    .dtype(torch::kFloat32)
+//                    .layout(torch::kStrided)
+//                    .device(torch::kCPU)
+//                    .requires_grad(false);
+//    torch::Tensor t1 = torch::ones({3, 4, 4});
+    torch::Tensor t1 = torch::ones({3,4,4},torch::TensorOptions().dtype(torch::kFloat32));
+    cout << t1 << endl;
+    torch::Tensor t2 = torch::sum(t1,0);
+    cout << "SUM = \n" << t2  << endl;
+//    Eigen::M
+    return 0;
+}
+
+int main_test_superpoint()
 {
     std::shared_ptr<torch::jit::script::Module> module = torch::jit::load(modelPath);
     assert(module != nullptr);
     std::cout << "cpu ok \n";
     torch::Device device(torch::kCPU);
     if (torch::cuda::is_available()) {
-        std::cout << "CUDA is available! Training on GPU." << std::endl;
+        std::cout << "CUDA is available!" << std::endl;
         device = torch::Device(torch::kCUDA);
         module->to(device);
         std::cout <<  "gpu ok \n";
@@ -79,7 +95,7 @@ int main()
 
         if(semi.is_cuda() && coarse_desc.is_cuda()){
             cout <<"i see u \n";
-        } else{
+        } else {
 //            torch::save(semi, "semi.pt");
 //            torch::save(coarse_desc, "coarse_desc.pt");
         }
