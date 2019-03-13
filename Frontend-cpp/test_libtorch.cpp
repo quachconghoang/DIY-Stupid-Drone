@@ -41,12 +41,28 @@ int main()
 //                    .layout(torch::kStrided)
 //                    .device(torch::kCPU)
 //                    .requires_grad(false);
-//    torch::Tensor t1 = torch::ones({3, 4, 4});
-    torch::Tensor t1 = torch::ones({3,4,4},torch::TensorOptions().dtype(torch::kFloat32));
-    cout << t1 << endl;
-    torch::Tensor t2 = torch::sum(t1,0);
-    cout << "SUM = \n" << t2  << endl;
-//    Eigen::M
+
+    torch::Tensor semi = torch::arange(0, 80).reshape({5,4,4})/10;
+//    cout << semi << endl;
+    torch::Tensor dense = semi.exp();
+
+    dense = dense / (torch::sum(dense,0) + .00001);
+//    cout << dense << endl;
+
+    torch::Tensor nodust = dense.slice(0,0,dense.size(0)-1);
+    nodust = nodust.transpose(0,2).transpose(0,1);
+    cout << nodust.sizes() <<endl;
+
+    torch::Tensor heatmap = nodust.reshape({4,4,2,2});
+    cout << heatmap.sizes() <<endl;
+    heatmap = heatmap.transpose(1,2);
+    heatmap = heatmap.reshape({8,8});
+    cout << heatmap.sizes() <<endl;
+    //    cout << "SUM = \n" << t2  << endl;
+
+    float thres = 0.015f;
+//    cout << heatmap.where(...);
+
     return 0;
 }
 

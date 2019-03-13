@@ -48,6 +48,7 @@ nodust = nodust.transpose(1, 2, 0)
 heatmap = np.reshape(nodust, [Hc, Wc, 8, 8])
 heatmap = np.transpose(heatmap, [0, 2, 1, 3])
 heatmap = np.reshape(heatmap, [Hc * 8, Wc * 8])
+
 # dummy_input = torch.randn(1, 1, H, W).cuda()
 # traced_script_module = torch.jit.trace(net, dummy_input)
 # output = traced_script_module(torch.ones(1, 1, H, W).cuda())
