@@ -1,16 +1,11 @@
 #include <torch/torch.h>
-#include <torch/script.h> // One-stop header.
+#include <torch/script.h>
 
 #include <opencv2/opencv.hpp>
 
-#include <thrust/host_vector.h>
-#include <thrust/device_vector.h>
 #include <cudnn.h>
 
 #include <iostream>
-
-#include <Eigen/Core>
-#include <unsupported/Eigen/CXX11/Tensor>
 
 using namespace std;
 using namespace cv;
@@ -18,50 +13,46 @@ using namespace cv;
 cv::String modelPath = "../models/superpoint_320x320.pt";
 cv::String path = "../icl_snippet/*.png";
 
-//struct Net : torch::nn::Module {
-//    Net(int64_t N, int64_t M) {
-//        W = register_parameter("W", torch::randn({N, M}));
-//        b = register_parameter("b", torch::randn(M));
-//    }
-//    torch::Tensor forward(torch::Tensor input) {
-//        return torch::addmm(b, input, W);
-//    }
-//    torch::Tensor W, b;
-//};
+torch::Tensor nms_fast( const torch::Tensor& in_corners, int H, int W, float dist_thresh)
+{
+    torch::Tensor grid = torch::zeros({H,W}, torch::kInt64);
+    torch::Tensor inds = torch::zeros({H,W}, torch::kInt64);
 
-//void convert_to_tensor()
-//{
-//
-//}
+    torch::Tensor rs;
+    return rs;
+}
 
 int main()
 {
-//    auto options = torch::TensorOptions()
-//                    .dtype(torch::kFloat32)
-//                    .layout(torch::kStrided)
-//                    .device(torch::kCPU)
-//                    .requires_grad(false);
-
     torch::Tensor semi = torch::arange(0, 80).reshape({5,4,4})/10;
-//    cout << semi << endl;
     torch::Tensor dense = semi.exp();
-
     dense = dense / (torch::sum(dense,0) + .00001);
-//    cout << dense << endl;
 
     torch::Tensor nodust = dense.slice(0,0,dense.size(0)-1);
     nodust = nodust.transpose(0,2).transpose(0,1);
-    cout << nodust.sizes() <<endl;
+    cout << nodust.sizes() << endl;
 
     torch::Tensor heatmap = nodust.reshape({4,4,2,2});
-    cout << heatmap.sizes() <<endl;
+    cout << heatmap.sizes() << endl;
     heatmap = heatmap.transpose(1,2);
     heatmap = heatmap.reshape({8,8});
-    cout << heatmap.sizes() <<endl;
-    //    cout << "SUM = \n" << t2  << endl;
+    cout << heatmap << endl;
 
     float thres = 0.015f;
-//    cout << heatmap.where(...);
+
+    // WARNING --- ROW-COL to XYZ
+    torch::Tensor tmp_loc = (heatmap >= thres).nonzero().transpose(0,1);
+    vector<torch::Tensor> xyz = tmp_loc.split(1,0);
+    torch::Tensor z = heatmap.index(xyz);
+    xyz.push_back(z);
+//    torch::Tensor ptx = torch::zeros({loc.size(0), loc.size(1)+1});
+//    for (int i = 0; i < loc.size(0) ; i++) {
+//        ptx[i][0] = loc[i][0];
+//        ptx[i][1] = loc[i][1];
+//        ptx[i][2] = heatmap[loc[i][0]][loc[i][1]];
+//    }
+//    cout << ptx;
+//    cout << heatmap.index_select(2,loc) << endl;;
 
     return 0;
 }
