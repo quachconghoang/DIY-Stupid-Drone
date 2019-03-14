@@ -2,7 +2,6 @@
 #include <torch/script.h>
 
 #include <opencv2/opencv.hpp>
-
 #include <cudnn.h>
 
 #include <iostream>
@@ -10,8 +9,8 @@
 using namespace std;
 using namespace cv;
 
-cv::String modelPath = "../models/superpoint_320x320.pt";
-cv::String path = "../icl_snippet/*.png";
+cv::String modelPath = "../models/superpoint_v1_320x240.pt";
+cv::String img_path = "../icl_snippet/250.png";
 
 torch::Tensor nms_fast( const torch::Tensor& in_corners, int H, int W, float dist_thresh)
 {
@@ -22,7 +21,77 @@ torch::Tensor nms_fast( const torch::Tensor& in_corners, int H, int W, float dis
     return rs;
 }
 
+torch::Tensor imgFile_to_tensor(cv::String file, int img_H, int img_W)
+{
+    cv::Mat im = cv::imread(file, cv::IMREAD_GRAYSCALE);
+    if (im.empty()) return torch::Tensor(); //only proceed if sucsessful
+    cv::resize(im, im, Size(img_W, img_H));
+//    cv::imshow("test",im);
+//    cv::waitKey();
+
+    torch::Tensor tensor_image = torch::from_blob(im.data, {1, im.rows, im.cols, 1}, at::kByte);
+    tensor_image = tensor_image.to(at::kFloat)/255.f;
+    tensor_image = at::transpose(tensor_image, 1, 2);
+    tensor_image = at::transpose(tensor_image, 1, 3);
+
+    return  tensor_image;
+}
+
+int W = 320;
+int H = 240;
+int cell = 8;
+float thres = 0.015f;
+
 int main()
+{
+    std::shared_ptr<torch::jit::script::Module> module = torch::jit::load(modelPath);
+    assert(module != nullptr);
+    std::cout << "cpu ok \n";
+    torch::Device device(torch::kCPU);
+    if (torch::cuda::is_available()) {
+//        std::cout << "CUDA is available!" << std::endl;
+        device = torch::Device(torch::kCUDA);
+        module->to(device);
+        std::cout <<  "gpu ok \n";
+    }
+
+//    vector<cv::String> fn;
+//    cv::glob(img_path,fn,true);
+    at::Tensor inp = imgFile_to_tensor(img_path, H, W);
+
+
+    std::vector<torch::jit::IValue> inputs;
+    inputs.emplace_back(inp.cuda());
+
+    auto outputs = module->forward(inputs).toTuple();
+    torch::Tensor semi = outputs->elements()[0].toTensor().to(at::kCPU).squeeze();
+    torch::Tensor coarse_desc = outputs->elements()[1].toTensor().to(at::kCPU).squeeze();
+
+    torch::Tensor dense = semi.exp();
+    dense = dense / (torch::sum(dense,0) + .00001);
+
+    torch::Tensor nodust = dense.slice(0,0,dense.size(0)-1);
+    nodust = nodust.transpose(0,2).transpose(0,1);
+    cout << nodust.sizes() << endl;
+
+    int Hc = int(H / cell);
+    int Wc = int(W / cell);
+
+    torch::Tensor heatmap = nodust.reshape({Hc, Wc, cell, cell});
+
+    heatmap = heatmap.transpose(1,2);
+    heatmap = heatmap.reshape({Hc*cell, Wc*cell});
+    cout << heatmap.sizes() << endl;
+
+    torch::Tensor tmp_loc = (heatmap >= thres).nonzero();//.transpose(0,1);
+    cout << tmp_loc.sizes() << endl;
+    cout << tmp_loc;
+//    cout << heatmap << endl;
+//    cv::Mat tmp = cv::Mat(H,W, CV_32F, heatmap.data_ptr());
+//    cv::imshow("test", tmp); cv::waitKey(); cv::destroyAllWindows();
+}
+
+int mainX()
 {
     torch::Tensor semi = torch::arange(0, 80).reshape({5,4,4})/10;
     torch::Tensor dense = semi.exp();
@@ -37,8 +106,6 @@ int main()
     heatmap = heatmap.transpose(1,2);
     heatmap = heatmap.reshape({8,8});
     cout << heatmap << endl;
-
-    float thres = 0.015f;
 
     // WARNING --- ROW-COL to XYZ
     torch::Tensor tmp_loc = (heatmap >= thres).nonzero().transpose(0,1);
@@ -55,62 +122,4 @@ int main()
 //    cout << heatmap.index_select(2,loc) << endl;;
 
     return 0;
-}
-
-int main_test_superpoint()
-{
-    std::shared_ptr<torch::jit::script::Module> module = torch::jit::load(modelPath);
-    assert(module != nullptr);
-    std::cout << "cpu ok \n";
-    torch::Device device(torch::kCPU);
-    if (torch::cuda::is_available()) {
-        std::cout << "CUDA is available!" << std::endl;
-        device = torch::Device(torch::kCUDA);
-        module->to(device);
-        std::cout <<  "gpu ok \n";
-    }
-
-
-    vector<cv::String> fn;
-    cv::glob(path,fn,true);
-
-    for (size_t k=0; k<fn.size(); ++k)
-    {
-        cv::Mat im = cv::imread(fn[k]);
-        if (im.empty()) continue; //only proceed if sucsessful
-        // you probably want to do some preprocessing
-        // data.push_back(im);
-        resize(im, im, Size(320, 320));
-        Mat im_tensor;
-        cvtColor(im, im_tensor, cv::COLOR_BGR2GRAY);
-
-        torch::Tensor tensor_image = torch::from_blob(im_tensor.data, {1, im_tensor.rows, im_tensor.cols, 1}, at::kByte);
-        tensor_image = tensor_image.to(at::kFloat);
-        tensor_image = at::transpose(tensor_image, 1, 2);
-        tensor_image = at::transpose(tensor_image, 1, 3);
-        cout<<tensor_image.sizes() <<endl;
-        torch::Tensor tensor_gpu = tensor_image.cuda();
-
-//        if(tensor_gpu.is_cuda()){cout <<"i see u \n";}
-
-        std::vector<torch::jit::IValue> inputs;
-        inputs.emplace_back(tensor_image.cuda());
-
-        auto outputs = module->forward(inputs).toTuple();
-        torch::Tensor semi = outputs->elements()[0].toTensor().to(at::kCPU).squeeze(0);
-        torch::Tensor coarse_desc = outputs->elements()[1].toTensor().to(at::kCPU).squeeze(0);
-
-        if(semi.is_cuda() && coarse_desc.is_cuda()){
-            cout <<"i see u \n";
-        } else {
-//            torch::save(semi, "semi.pt");
-//            torch::save(coarse_desc, "coarse_desc.pt");
-        }
-        cout << semi.sizes() << "  " << coarse_desc.sizes() << "\n";
-//        cout << semi.data();
-//        out1.slice()
-
-        cv::imshow("test", im_tensor);
-        cv::waitKey();
-    }
 }
