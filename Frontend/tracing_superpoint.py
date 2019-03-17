@@ -7,14 +7,13 @@ from demo_superpoint import SuperPointFrontend, SuperPointNet
 import matplotlib.pyplot as plt
 
 
-def nms_fast(self, in_corners, H, W, dist_thresh):
-
+def nms_fast(in_corners, H, W, dist_thresh):
     grid = np.zeros((H, W)).astype(int)  # Track NMS data.
     inds = np.zeros((H, W)).astype(int)  # Store indices of points.
     # Sort by confidence and round to nearest int.
     inds1 = np.argsort(-in_corners[2, :])
     corners = in_corners[:, inds1]
-    rcorners = corners[:2, :].round().astype(int)  # Rounded corners.
+    rcorners = corners[:2, :].round().astype(int)  # Rounded corners. [x:y]
     # Check for edge case of 0 or 1 corners.
     if rcorners.shape[1] == 0:
         return np.zeros((3, 0)).astype(int), np.zeros(0).astype(int)
@@ -38,23 +37,24 @@ def nms_fast(self, in_corners, H, W, dist_thresh):
             grid[pt[1], pt[0]] = -1
             count += 1
     # Get all surviving -1's and return sorted array of remaining corners.
-    keepy, keepx = np.where(grid == -1)
-    keepy, keepx = keepy - pad, keepx - pad
-    inds_keep = inds[keepy, keepx]
-    out = corners[:, inds_keep]
-    values = out[-1, :]
-    inds2 = np.argsort(-values)
-    out = out[:, inds2]
-    out_inds = inds1[inds_keep[inds2]]
-    return out, out_inds
+    # keepy, keepx = np.where(grid == -1)
+    # keepy, keepx = keepy - pad, keepx - pad
+    # inds_keep = inds[keepy, keepx]
+    # out = corners[:, inds_keep]
+    # values = out[-1, :]
+    # inds2 = np.argsort(-values)
+    # out = out[:, inds2]
+    # out_inds = inds1[inds_keep[inds2]]
+    # return out, out_inds
 
 net = SuperPointNet()
 net.load_state_dict(torch.load('superpoint_v1.pth'))
 net.cuda()
 
-W = 160
-H = 120
+W = 320
+H = 240
 cell = 8
+dist_thresh = 4
 
 img_path = './assets/icl_snippet/250.png'
 img_gray = cv2.imread(img_path,0)
@@ -93,7 +93,38 @@ pts[0, :] = ys
 pts[1, :] = xs
 pts[2, :] = heatmap[xs, ys]
 
-# dummy_input = torch.randn(1, 1, H, W).cuda()
-# traced_script_module = torch.jit.trace(net, dummy_input)
-# output = traced_script_module(torch.ones(1, 1, H, W).cuda())
-# traced_script_module.save("superpoint_v1.pt")
+in_corners = pts
+
+e1 = cv2.getTickCount()
+nms_fast(pts, H, W, dist_thresh=dist_thresh)  # Apply NMS.
+e2 = cv2.getTickCount()
+print((e2-e1)/cv2.getTickFrequency())
+
+# grid = np.zeros((H, W)).astype(int)  # Track NMS data.
+# inds = np.zeros((H, W)).astype(int)  # Store indices of points.
+# # Sort by confidence and round to nearest int.
+# inds1 = np.argsort(-in_corners[2, :])
+# corners = in_corners[:, inds1]
+# rcorners = corners[:2, :].round().astype(int)  # Rounded corners. [x:y]
+#
+# # Check for edge case of 0 or 1 corners.
+# # if rcorners.shape[1] == 0:
+# #     return np.zeros((3, 0)).astype(int), np.zeros(0).astype(int)
+# # if rcorners.shape[1] == 1:
+# #     out = np.vstack((rcorners, in_corners[2])).reshape(3, 1)
+# #     return out, np.zeros((1)).astype(int)
+# # Initialize the grid.
+# for i, rc in enumerate(rcorners.T):
+#     grid[rcorners[1, i], rcorners[0, i]] = 1
+#     inds[rcorners[1, i], rcorners[0, i]] = i
+#
+# pad = dist_thresh
+# grid = np.pad(grid, ((pad, pad), (pad, pad)), mode='constant')
+# count = 0
+#
+# for i, rc in enumerate(rcorners.T):
+#     pt = (rc[0] + pad, rc[1] + pad)
+#     if grid[pt[1], pt[0]] == 1:  # If not yet suppressed.
+#         grid[pt[1] - pad:pt[1] + pad + 1, pt[0] - pad:pt[0] + pad + 1] = 0
+#         grid[pt[1], pt[0]] = -1
+#         count += 1
