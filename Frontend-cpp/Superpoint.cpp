@@ -42,6 +42,7 @@ void Superpoint::init(const cv::String & model_path, bool debug, bool use_cuda)
 
 void Superpoint::run(cv::Mat & bgr_img)
 {
+    double e1 = getTickCount();
     cv::Mat im_gray, im;
     cv::cvtColor(bgr_img, im_gray, cv::COLOR_BGR2GRAY);
     cv::resize(im_gray, im, cv::Size(W, H));
@@ -90,15 +91,16 @@ void Superpoint::run(cv::Mat & bgr_img)
     yx[0] = yx[0].squeeze().to(at::kInt); // Becareful: Convert for std vector casting
     yx[1] = yx[1].squeeze().to(at::kInt);
 
-//    double e1 = getTickCount();
+    
     vector<Point> pts_nms =  nms_fast(yx,z,H,W, dist_thresh);
-//    double e2 = getTickCount();
-//    cout << "NMS-time = " <<(e2-e1)/getTickFrequency() << endl;
-
+    double e2 = getTickCount();
+    cout << "Full-time = " <<(e2-e1)/getTickFrequency() << endl;
+    // cout << pts_nms.size() << endl;
     if(m_debug)
     {
         for (int i = 0; i < pts_nms.size() ; i++) {
-            cv::circle(bgr_img, pts_nms[i]*2, 3, Scalar(255,0,0));
+            cv::circle(bgr_img, pts_nms[i]*4, 3, Scalar(255,0,0));
+            // cout << pts_nms[i] << endl;
         }
         cv::imshow("test", bgr_img); cv::waitKey(30);
     }
@@ -154,6 +156,7 @@ vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_v
 //    }
 
 //   Initialize the grid.
+
     for (int i = 0; i < num_indicies; i++){
         grid.at<char>(vec_y[i]+pad,vec_x[i]+pad) = 1;
         inds.at<int>(vec_y[i],vec_x[i]) = i;
@@ -179,7 +182,7 @@ vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_v
     int _store_locate = 0;
     for (int i = 0; i < num_indicies; i++) {
         Point pt = Point(vec_x[i], vec_y[i]);
-        if(grid.at<char>(pt) == -1)
+        if(grid.at<char>(pt) == char(-1))
         {
             rs[_store_locate] = pt;
 //            out_x[_store_locate] = pt.x;
@@ -187,7 +190,6 @@ vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_v
 //            out_val[_store_locate] = vec_value[i];
 //            out_indicies[_store_locate] = vec_indices[i];
             _store_locate+=1;
-
         }
     }
 

@@ -14,8 +14,8 @@ class Superpoint_tracker;
 class Superpoint {
 
 public:
-    int W = 320;
-    int H = 240;
+    int W = 160;
+    int H = 120;
     int cell = 8;
     float thres = 0.015f;
     int dist_thresh = 4;
