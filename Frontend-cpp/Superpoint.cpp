@@ -8,7 +8,7 @@ using namespace std;
 using namespace cv;
 
 void cvImg_to_tensor(const Mat & img, torch::Tensor & inp);
-vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_vals, int H, int W, int dist_thresh);
+vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_vals, int H, int W, int dist_thresh, int _border_remove);
 
 Superpoint::Superpoint()
 {
@@ -38,14 +38,18 @@ void Superpoint::init(const cv::String & model_path, bool debug, bool use_cuda)
     }
 }
 
-
+void Superpoint::clear()
+{
+    // Do something
+    return;
+}
 
 void Superpoint::run(cv::Mat & bgr_img)
 {
     double e1 = getTickCount();
     cv::Mat im_gray, im;
     cv::cvtColor(bgr_img, im_gray, cv::COLOR_BGR2GRAY);
-    cv::resize(im_gray, im, cv::Size(W, H));
+    cv::resize(im_gray, im, cv::Size(W, H), cv::INTER_AREA);
 
     torch::Tensor inp;
     cvImg_to_tensor(im, inp);
@@ -60,12 +64,11 @@ void Superpoint::run(cv::Mat & bgr_img)
     at::Tensor semi, coarse_desc;
     if (m_use_cuda){
         semi = outputs->elements()[0].toTensor().to(at::kCPU).squeeze();
-        coarse_desc = outputs->elements()[1].toTensor().to(at::kCPU).squeeze();
+        coarse_desc = outputs->elements()[1].toTensor().to(at::kCPU);
     } else{
         semi = outputs->elements()[0].toTensor().squeeze();
         coarse_desc = outputs->elements()[1].toTensor().squeeze();
     }
-
 
     inputs.clear();
     outputs.release(); // RELEASE to avoid Segmented fault
@@ -91,18 +94,41 @@ void Superpoint::run(cv::Mat & bgr_img)
     yx[0] = yx[0].squeeze().to(at::kInt); // Becareful: Convert for std vector casting
     yx[1] = yx[1].squeeze().to(at::kInt);
 
-    
-    vector<Point> pts_nms =  nms_fast(yx,z,H,W, dist_thresh);
+    m_pts_nms =  nms_fast(yx,z,H,W, dist_thresh, border_remove);
     double e2 = getTickCount();
     cout << "Full-time = " <<(e2-e1)/getTickFrequency() << endl;
-    // cout << pts_nms.size() << endl;
+    cout << m_pts_nms.size() << endl;
+
+    const long num_pts = m_pts_nms.size();
+    const long D = coarse_desc.size(1);
+
+    vector<float> sample_pts(m_pts_nms.size()*2);
+    float W_2 = float(W)/2.f;
+    float H_2 = float(H)/2.f;
+    for (int i = 0; i < m_pts_nms.size() ; i++)
+    {
+        sample_pts[i*2] = float(m_pts_nms[i].x)/W_2 - 1.f;
+        sample_pts[i*2+1] = float(m_pts_nms[i].y)/H_2 - 1.f;
+    }
+    at::Tensor sample_tensor = torch::from_blob(sample_pts.data(), {1, 1, num_pts, 2}, torch::TensorOptions().dtype(at::kFloat));
+    int64_t interpolation_mode = 0; // Bilinear
+    int64_t padding_mode = 0; // zeros
+    m_desc = at::grid_sampler(coarse_desc, sample_tensor, interpolation_mode, padding_mode);
+    m_desc = m_desc.reshape({D, -1});
+
+    at::Tensor desc_norm = torch::norm(m_desc, 2, 0).unsqueeze(0);// Frobenius norm on channel 0
+    cout << desc_norm.sizes() << endl;
+//    m_desc /= desc_norm;
+    m_desc = torch::div(m_desc, desc_norm);
+
+//    cout << "==============\n" << m_desc[0] << endl;
     if(m_debug)
     {
-        for (int i = 0; i < pts_nms.size() ; i++) {
-            cv::circle(bgr_img, pts_nms[i]*4, 3, Scalar(255,0,0));
-            // cout << pts_nms[i] << endl;
+        for (int i = 0; i < m_pts_nms.size() ; i++) {
+            cv::circle(bgr_img, m_pts_nms[i]*2, 3, Scalar(255,0,0));
+//            cout << sample_pts[i*2] << " - " << sample_pts[i*2+1] << endl;
         }
-        cv::imshow("test", bgr_img); cv::waitKey(30);
+        cv::imshow("test", bgr_img); cv::waitKey();
     }
 
 }
@@ -116,7 +142,7 @@ void cvImg_to_tensor(const Mat & img, torch::Tensor & inp)
     inp = at::transpose(inp, 1, 3);
 }
 
-vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_vals, int H, int W, int dist_thresh)
+vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_vals, int H, int W, int dist_thresh, int _border_remove)
 {
     int pad = dist_thresh;
     int nms_cell_size = pad*2+1;
@@ -158,22 +184,24 @@ vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_v
 //   Initialize the grid.
 
     for (int i = 0; i < num_indicies; i++){
-        grid.at<char>(vec_y[i]+pad,vec_x[i]+pad) = 1;
+        grid.at<char>(vec_y[i]+pad,vec_x[i]+pad) = char(127);
         inds.at<int>(vec_y[i],vec_x[i]) = i;
     }
 
     int count = 0;
     for (int i = 0; i < num_indicies; i++) {
         Point pt = Point(vec_x[i]+pad, vec_y[i] + pad);
-        if(grid.at<char>(pt) == 1){
+        if(grid.at<char>(pt) == char(127)){
             cv::Rect roi = cv::Rect(vec_x[i], vec_y[i], nms_cell_size, nms_cell_size);
             grid(roi).setTo(0);
-            grid.at<char>(pt) = -1;
+            grid.at<char>(pt) = -127;
             count += 1;
         }
     }
 
-    grid = grid(cv::Rect(pad,pad,W,H));
+    // Store results + remove border points
+    grid = grid(cv::Rect(pad , pad , W , H ));
+    cv::Rect inRect = cv::Rect(_border_remove, _border_remove, W - _border_remove, H - _border_remove);
 
 //    cout << count << " - " << grid.size << endl;
     vector<int> out_x(count), out_y(count), out_indicies(count);
@@ -182,16 +210,18 @@ vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_v
     int _store_locate = 0;
     for (int i = 0; i < num_indicies; i++) {
         Point pt = Point(vec_x[i], vec_y[i]);
-        if(grid.at<char>(pt) == char(-1))
+        if(inRect.contains(pt) && grid.at<char>(pt) == char(-127))
         {
             rs[_store_locate] = pt;
-//            out_x[_store_locate] = pt.x;
-//            out_y[_store_locate] = pt.y;
 //            out_val[_store_locate] = vec_value[i];
 //            out_indicies[_store_locate] = vec_indices[i];
             _store_locate+=1;
         }
     }
+
+//    cout << "Filtered : " << _store_locate << endl;
+    rs.resize(_store_locate);
+
 
     return rs;
 }

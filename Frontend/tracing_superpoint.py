@@ -73,7 +73,7 @@ outs = net.forward(inp)
 semi, coarse_desc = outs[0], outs[1]
 
 semi = semi.data.cpu().numpy().squeeze()
-# coarse_desc = coarse_desc.data.cpu().numpy().squeeze()
+coarse_desc = coarse_desc.data.cpu()
 
 dense = np.exp(semi)  # Softmax.
 dense = dense / (np.sum(dense, axis=0) + .00001)  # Should sum to 1.
@@ -115,7 +115,7 @@ samp_pts[1, :] = (samp_pts[1, :] / (float(H) / 2.)) - 1.
 samp_pts = samp_pts.transpose(0, 1).contiguous()
 samp_pts = samp_pts.view(1, 1, -1, 2)
 samp_pts = samp_pts.float()
-samp_pts = samp_pts.cuda()
+
 desc = torch.nn.functional.grid_sample(coarse_desc, samp_pts)
 desc = desc.data.cpu().numpy().reshape(D, -1)
 desc /= np.linalg.norm(desc, axis=0)[np.newaxis, :]

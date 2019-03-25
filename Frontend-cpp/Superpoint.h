@@ -9,13 +9,15 @@
 #include <torch/script.h>
 #include <opencv2/opencv.hpp>
 
-class Superpoint_tracker;
+class Superpoint_tracker{
+
+};
 
 class Superpoint {
 
 public:
-    int W = 160;
-    int H = 120;
+    int W = 320;
+    int H = 240;
     int cell = 8;
     float thres = 0.015f;
     int dist_thresh = 4;
@@ -32,16 +34,17 @@ public:
     void clear();
 
 
-
 private:
     std::shared_ptr<torch::jit::script::Module> module;
     std::vector<torch::jit::IValue> inputs;
     c10::intrusive_ptr<torch::ivalue::Tuple> outputs;
 
+    std::vector<cv::Point> m_pts_nms;
+    at::Tensor m_desc;
+
+
 };
 
-class Superpoint_tracker{
 
-};
 
 #endif //TEST_LIBTORCH_SUPERPOINT_H

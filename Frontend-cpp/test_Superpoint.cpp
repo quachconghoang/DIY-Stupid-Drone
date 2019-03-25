@@ -14,7 +14,7 @@
 using namespace std;
 using namespace cv;
 
-cv::String modelPath = "../models/superpoint_v1_160x120.pt";
+cv::String modelPath = "../models/superpoint_v1_320x240.pt";
 Superpoint engine;
 
 int main()
@@ -27,6 +27,7 @@ int main()
 
     for( auto fname : fn)
     {
+        cout << fname <<endl;
         Mat bgr_img = cv::imread(fname);
         engine.run(bgr_img);
     }
