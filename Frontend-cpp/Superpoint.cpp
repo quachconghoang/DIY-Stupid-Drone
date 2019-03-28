@@ -71,7 +71,6 @@ void Superpoint::run(cv::Mat & bgr_img)
     }
 
     inputs.clear();
-    outputs.release(); // RELEASE to avoid Segmented fault
 
     at::Tensor dense = semi.exp();
     dense = dense / (at::sum(dense,0) + .00001);
@@ -95,9 +94,6 @@ void Superpoint::run(cv::Mat & bgr_img)
     yx[1] = yx[1].squeeze().to(at::kInt);
 
     m_pts_nms =  nms_fast(yx,z,H,W, dist_thresh, border_remove);
-    double e2 = getTickCount();
-    cout << "Full-time = " <<(e2-e1)/getTickFrequency() << endl;
-    cout << m_pts_nms.size() << endl;
 
     const long num_pts = m_pts_nms.size();
     const long D = coarse_desc.size(1);
@@ -121,6 +117,11 @@ void Superpoint::run(cv::Mat & bgr_img)
 //    m_desc /= desc_norm;
     m_desc = torch::div(m_desc, desc_norm);
 
+
+    double e2 = getTickCount();
+    cout << "Full-time = " <<(e2-e1)/getTickFrequency() << endl;
+    cout << m_pts_nms.size() << endl;
+
 //    cout << "==============\n" << m_desc[0] << endl;
     if(m_debug)
     {
@@ -128,9 +129,11 @@ void Superpoint::run(cv::Mat & bgr_img)
             cv::circle(bgr_img, m_pts_nms[i]*2, 3, Scalar(255,0,0));
 //            cout << sample_pts[i*2] << " - " << sample_pts[i*2+1] << endl;
         }
-        cv::imshow("test", bgr_img); cv::waitKey();
+        cv::imshow("test", bgr_img); cv::waitKey(1);
     }
 
+    outputs->elements().clear();
+    outputs.release(); // RELEASE to avoid Segmented fault
 }
 
 void cvImg_to_tensor(const Mat & img, torch::Tensor & inp)
