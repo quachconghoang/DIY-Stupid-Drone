@@ -32,9 +32,9 @@ cudnn.benchmark = cfg.CUDNN.BENCHMARK
 torch.backends.cudnn.deterministic = cfg.CUDNN.DETERMINISTIC
 torch.backends.cudnn.enabled = cfg.CUDNN.ENABLED
 
-model = models.pose_hrnet.get_pose_net(cfg, is_train=False)
+model = models.pose_hrnet.get_pose_net(cfg, is_train=True)
 # model = models.pose_hrnet.PoseHighResolutionNet(cfg)
-model.load_state_dict(torch.load(cfg.TEST.MODEL_FILE), strict=False)
+# model.load_state_dict(torch.load(cfg.TEST.MODEL_FILE), strict=False)
 
 dummy = torch.rand((1, 3,256,192))
 # with torch.no_grad():
