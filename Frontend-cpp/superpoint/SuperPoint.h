@@ -12,9 +12,6 @@
 #endif
 
 
-namespace ORB_SLAM2
-{
-
 struct SuperPoint : torch::nn::Module {
   SuperPoint();
 
@@ -52,13 +49,21 @@ public:
     void detect(cv::Mat &image, bool cuda);
     void getKeyPoints(float threshold, int iniX, int maxX, int iniY, int maxY, std::vector<cv::KeyPoint> &keypoints, bool nms);
     void computeDescriptors(const std::vector<cv::KeyPoint> &keypoints, cv::Mat &descriptors);
+    bool use_cuda = true;
 
 private:
     std::shared_ptr<SuperPoint> model;
     torch::Tensor mProb;
     torch::Tensor mDesc;
-};
+    torch::DeviceType device_type;
 
-}  // ORB_SLAM
+    int W = 320;
+    int H = 240;
+    int cell = 8;
+    float thres = 0.015f;
+    int dist_thresh = 4;
+    int border_remove = 4;
+
+};
 
 #endif

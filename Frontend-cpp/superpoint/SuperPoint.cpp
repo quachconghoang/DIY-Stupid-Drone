@@ -1,9 +1,6 @@
 #include "SuperPoint.h"
 
 
-namespace ORB_SLAM2
-{
-
 const int c1 = 64;
 const int c2 = 64;
 const int c3 = 128;
@@ -86,6 +83,7 @@ std::vector<torch::Tensor> SuperPoint::forward(torch::Tensor x) {
 
     int Hc = semi.size(1);
     int Wc = semi.size(2);
+//    std::cout << Hc << Wc;
     semi = semi.contiguous().view({-1, Hc, Wc, 8, 8});
     semi = semi.permute({0, 1, 3, 2, 4});
     semi = semi.contiguous().view({-1, Hc * 8, Wc * 8});  // [B, H, W]
@@ -130,7 +128,7 @@ cv::Mat SPdetect(std::shared_ptr<SuperPoint> model, cv::Mat img, std::vector<cv:
     grid[0][0].slice(1, 0, 1) = 2.0 * fkpts.slice(1, 1, 2) / prob.size(1) - 1;  // x
     grid[0][0].slice(1, 1, 2) = 2.0 * fkpts.slice(1, 0, 1) / prob.size(0) - 1;  // y
 
-    desc = torch::grid_sampler(desc, grid, 0, 0);  // [1, 256, 1, n_keypoints]
+    desc = torch::grid_sampler(desc, grid, 0, 0,true);  // [1, 256, 1, n_keypoints]
     desc = desc.squeeze(0).squeeze(1);  // [256, n_keypoints]
 
     // normalize to 1
@@ -142,7 +140,7 @@ cv::Mat SPdetect(std::shared_ptr<SuperPoint> model, cv::Mat img, std::vector<cv:
     if (use_cuda)
         desc = desc.to(torch::kCPU);
 
-    cv::Mat descriptors_no_nms(cv::Size(desc.size(1), desc.size(0)), CV_32FC1, desc.data<float>());
+    cv::Mat descriptors_no_nms(cv::Size(desc.size(1), desc.size(0)), CV_32FC1, desc.data_ptr<float>());
     
     std::vector<cv::KeyPoint> keypoints_no_nms;
     for (int i = 0; i < kpts.size(0); i++) {
@@ -185,6 +183,11 @@ cv::Mat SPdetect(std::shared_ptr<SuperPoint> model, cv::Mat img, std::vector<cv:
 
 SPDetector::SPDetector(std::shared_ptr<SuperPoint> _model) : model(_model) 
 {
+    use_cuda = use_cuda && torch::cuda::is_available();
+    if (use_cuda)
+        device_type = torch::kCUDA;
+    else
+        device_type = torch::kCPU;
 }
 
 void SPDetector::detect(cv::Mat &img, bool cuda)
@@ -192,8 +195,6 @@ void SPDetector::detect(cv::Mat &img, bool cuda)
     auto x = torch::from_blob(img.clone().data, {1, 1, img.rows, img.cols}, torch::kByte);
     x = x.to(torch::kFloat) / 255;
 
-    bool use_cuda = cuda && torch::cuda::is_available();
-    torch::DeviceType device_type;
     if (use_cuda)
         device_type = torch::kCUDA;
     else
@@ -206,7 +207,7 @@ void SPDetector::detect(cv::Mat &img, bool cuda)
 
     mProb = out[0].squeeze(0);  // [H, W]
     mDesc = out[1];             // [1, 256, H/8, W/8]
-
+//    std::cout << mProb.sizes() << "\n";
 }
 
 
@@ -254,13 +255,13 @@ void SPDetector::computeDescriptors(const std::vector<cv::KeyPoint> &keypoints, 
         kpt_mat.at<float>(i, 1) = (float)keypoints[i].pt.x;
     }
 
-    auto fkpts = torch::from_blob(kpt_mat.data, {keypoints.size(), 2}, torch::kFloat);
+    auto fkpts = torch::from_blob(kpt_mat.data, {int64 (keypoints.size()), 2}, torch::kFloat);
 
     auto grid = torch::zeros({1, 1, fkpts.size(0), 2});  // [1, 1, n_keypoints, 2]
     grid[0][0].slice(1, 0, 1) = 2.0 * fkpts.slice(1, 1, 2) / mProb.size(1) - 1;  // x
     grid[0][0].slice(1, 1, 2) = 2.0 * fkpts.slice(1, 0, 1) / mProb.size(0) - 1;  // y
 
-    auto desc = torch::grid_sampler(mDesc, grid, 0, 0);  // [1, 256, 1, n_keypoints]
+    auto desc = torch::grid_sampler(mDesc, grid, 0, 0, true);  // [1, 256, 1, n_keypoints]
     desc = desc.squeeze(0).squeeze(1);  // [256, n_keypoints]
 
     // normalize to 1
@@ -270,7 +271,7 @@ void SPDetector::computeDescriptors(const std::vector<cv::KeyPoint> &keypoints, 
     desc = desc.transpose(0, 1).contiguous();  // [n_keypoints, 256]
     desc = desc.to(torch::kCPU);
 
-    cv::Mat desc_mat(cv::Size(desc.size(1), desc.size(0)), CV_32FC1, desc.data<float>());
+    cv::Mat desc_mat(cv::Size(desc.size(1), desc.size(0)), CV_32FC1, desc.data_ptr<float>());
 
     descriptors = desc_mat.clone();
 }
@@ -452,5 +453,3 @@ void NMS(cv::Mat det, cv::Mat conf, cv::Mat desc, std::vector<cv::KeyPoint>& pts
         }
     }
 }
-
-} //namespace ORB_SLAM

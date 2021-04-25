@@ -23,8 +23,9 @@ public:
     int dist_thresh = 4;
     int border_remove = 4;
 
-    bool m_debug = false;
+    bool m_debug = true;
     bool m_use_cuda = true;
+    torch::DeviceType m_device_type;
 
     Superpoint();
     ~Superpoint();
@@ -41,6 +42,7 @@ private:
 
     std::vector<cv::Point> m_pts_nms;
     at::Tensor m_desc;
+    at::Tensor semi, coarse_desc;
 
 
 };

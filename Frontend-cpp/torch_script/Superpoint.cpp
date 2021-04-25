@@ -23,16 +23,19 @@ void Superpoint::init(const cv::String & model_path, bool debug, bool use_cuda)
 {
     m_debug = debug;
     m_use_cuda = use_cuda;
+    torch::requires_grad(false);
 
     if (torch::cuda::is_available() && m_use_cuda) {
+        m_device_type = torch::kCUDA;
         torch::Device device(torch::kCUDA);
-        module = torch::jit::load(model_path, device);
+        module = std::make_shared<torch::jit::script::Module>(
+                torch::jit::load(model_path, torch::Device(m_device_type)));
         assert(module != nullptr);
-
         cout <<  "gpu ok \n";
     } else{
         torch::Device device(torch::kCPU);
-        module = torch::jit::load(model_path, device);
+        module = std::make_shared<torch::jit::script::Module>(
+                torch::jit::load(model_path, torch::Device(m_device_type)));
         assert(module != nullptr);
         cout << "cpu ok \n";
     }
@@ -47,9 +50,12 @@ void Superpoint::clear()
 void Superpoint::run(cv::Mat & bgr_img)
 {
     double e1 = getTickCount();
+
     cv::Mat im_gray, im;
+
     cv::cvtColor(bgr_img, im_gray, cv::COLOR_BGR2GRAY);
     cv::resize(im_gray, im, cv::Size(W, H), cv::INTER_AREA);
+
 
     torch::Tensor inp;
     cvImg_to_tensor(im, inp);
@@ -61,7 +67,6 @@ void Superpoint::run(cv::Mat & bgr_img)
     }
 
     outputs = module->forward(inputs).toTuple();
-    at::Tensor semi, coarse_desc;
     if (m_use_cuda){
         semi = outputs->elements()[0].toTensor().to(at::kCPU).squeeze();
         coarse_desc = outputs->elements()[1].toTensor().to(at::kCPU);
@@ -87,9 +92,12 @@ void Superpoint::run(cv::Mat & bgr_img)
     heatmap = heatmap.reshape({Hc*cell, Wc*cell});
 
     at::Tensor pts = (heatmap >= thres).nonzero();
-//    cout << pts << endl;
     vector<at::Tensor> yx = pts.split(1,1);
-    at::Tensor z = heatmap.index(yx).squeeze();
+//    cout << yx[0] << endl;
+//    cout << yx[1] << endl;
+    pts.transpose(0,1);
+    at::Tensor z = heatmap.index({yx[0],yx[1]}).squeeze();
+//    cout << z.sizes();
     yx[0] = yx[0].squeeze().to(at::kInt); // Becareful: Convert for std vector casting
     yx[1] = yx[1].squeeze().to(at::kInt);
 
@@ -109,7 +117,7 @@ void Superpoint::run(cv::Mat & bgr_img)
     at::Tensor sample_tensor = torch::from_blob(sample_pts.data(), {1, 1, num_pts, 2}, torch::TensorOptions().dtype(at::kFloat));
     int64_t interpolation_mode = 0; // Bilinear
     int64_t padding_mode = 0; // zeros
-    m_desc = at::grid_sampler(coarse_desc, sample_tensor, interpolation_mode, padding_mode);
+    m_desc = at::grid_sampler(coarse_desc, sample_tensor, interpolation_mode, padding_mode,true);
     m_desc = m_desc.reshape({D, -1});
 
     at::Tensor desc_norm = torch::norm(m_desc, 2, 0).unsqueeze(0);// Frobenius norm on channel 0
@@ -125,11 +133,12 @@ void Superpoint::run(cv::Mat & bgr_img)
 //    cout << "==============\n" << m_desc[0] << endl;
     if(m_debug)
     {
+//        cv::resize(bgr_img, bgr_img, cv::Size(W, H), cv::INTER_AREA);
         for (int i = 0; i < m_pts_nms.size() ; i++) {
-            cv::circle(bgr_img, m_pts_nms[i]*2, 3, Scalar(255,0,0));
+            cv::circle(bgr_img, m_pts_nms[i]*2, 3, Scalar(255,0,0),2);
 //            cout << sample_pts[i*2] << " - " << sample_pts[i*2+1] << endl;
         }
-        cv::imshow("test", bgr_img); cv::waitKey(1);
+        cv::imshow("test", bgr_img); cv::waitKey(0);
     }
 
     outputs->elements().clear();
@@ -165,11 +174,11 @@ vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_v
         return dumb;
     }
 
-    vector<int> vec_x_unordered(yx[1].data<int>(), yx[1].data<int>() + yx[1].numel());
-    vector<int> vec_y_unordered(yx[0].data<int>(), yx[0].data<int>() + yx[0].numel());
-    vector<float> vec_value_unodered(heat_vals.data<float>(), heat_vals.data<float>() + heat_vals.numel());
+    vector<int> vec_x_unordered(yx[1].data_ptr<int>(), yx[1].data_ptr<int>() + yx[1].numel());
+    vector<int> vec_y_unordered(yx[0].data_ptr<int>(), yx[0].data_ptr<int>() + yx[0].numel());
+    vector<float> vec_value_unodered(heat_vals.data_ptr<float>(), heat_vals.data_ptr<float>() + heat_vals.numel());
 
-    vector<int64> vec_indices(sorted_indices.data<int64>(), sorted_indices.data<int64>() + sorted_indices.numel());
+    vector<int64> vec_indices(sorted_indices.data_ptr<int64>(), sorted_indices.data_ptr<int64>() + sorted_indices.numel());
     vector<int> vec_x(num_indicies);
     vector<int> vec_y(num_indicies);
 
@@ -178,7 +187,7 @@ vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_v
         vec_x[i] = vec_x_unordered[vec_indices[i]];
     }
 
-    vector<float> vec_value(sorted_values.data<float>(), sorted_values.data<float>() + sorted_values.numel());
+    vector<float> vec_value(sorted_values.data_ptr<float>(), sorted_values.data_ptr<float>() + sorted_values.numel());
 
 //    for (int i = 0; i < num_indicies; i++) {
 //        cout << "LOC #" << vec_indices[i] << ": " << vec_value[i] << " [" << vec_y[i] << " - " << vec_x[i] << "] \n";

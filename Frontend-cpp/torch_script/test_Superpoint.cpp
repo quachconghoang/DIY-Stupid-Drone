@@ -14,7 +14,7 @@
 using namespace std;
 using namespace cv;
 
-cv::String modelPath = "../models/superpoint_v1_320x240.pt";
+cv::String modelPath = "../../models/superpoint_v1_320x240.pt";
 Superpoint engine;
 
 int main()
@@ -24,13 +24,16 @@ int main()
 
     cout << "Hello Superpoint" << endl;
     vector<cv::String> fn;
-    cv::glob("../icl_snippet",fn,true);
+    cv::glob("../../icl_snippet",fn,true);
 
     for( auto fname : fn)
     {
-        // cout << fname <<endl;
+         cout << fname <<endl;
         Mat bgr_img = cv::imread(fname);
+//        cv::imshow("img", bgr_img);
+
         engine.run(bgr_img);
+        cv::waitKey(100);
     }
 
 //    VideoCapture cap;
