@@ -594,9 +594,9 @@ if __name__ == '__main__':
       help='Images to skip if input is movie or directory (default: 1).')
   parser.add_argument('--show_extra', action='store_true',
       help='Show extra debug outputs (default: False).')
-  parser.add_argument('--H', type=int, default=120,
+  parser.add_argument('--H', type=int, default=240,
       help='Input image height (default: 120).')
-  parser.add_argument('--W', type=int, default=160,
+  parser.add_argument('--W', type=int, default=376,
       help='Input image width (default:160).')
   parser.add_argument('--display_scale', type=int, default=2,
       help='Factor to scale output visualization (default: 2).')
@@ -604,7 +604,7 @@ if __name__ == '__main__':
       help='Minimum length of point tracks (default: 2).')
   parser.add_argument('--max_length', type=int, default=5,
       help='Maximum length of point tracks (default: 5).')
-  parser.add_argument('--nms_dist', type=int, default=4,
+  parser.add_argument('--nms_dist', type=int, default=8,
       help='Non Maximum Suppression (NMS) distance (default: 4).')
   parser.add_argument('--conf_thresh', type=float, default=0.015,
       help='Detector confidence threshold (default: 0.015).')

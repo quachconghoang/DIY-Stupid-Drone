@@ -16,14 +16,17 @@ class Superpoint_tracker{
 class Superpoint {
 
 public:
-    int W = 320;
-    int H = 240;
-    int cell = 8;
+    int raw_W = 752;
+    int raw_H = 480;
+    int W = 376; // 188
+    int H = 240; // 120
+    float scale = 2.f;
+    const int cell = 8; //8
+    const int border_remove = 8; //4
     float thres = 0.015f;
-    int dist_thresh = 4;
-    int border_remove = 4;
+    int dist_thresh = 8; //8
 
-    bool m_debug = true;
+    bool m_debug = false;
     bool m_use_cuda = true;
     torch::DeviceType m_device_type;
 
@@ -32,6 +35,10 @@ public:
 
     void init(const cv::String & model_path, bool debug=false, bool use_cuda = true);
     void run(cv::Mat & bgr_img);
+    void compute_NN(cv::Mat & bgr_img);
+    void getKeyPoints(std::vector<cv::KeyPoint> & kps, cv::Mat & desc);
+
+    void getPointsDescriptors();
     void clear();
 
 
@@ -40,7 +47,7 @@ private:
     std::vector<torch::jit::IValue> inputs;
     c10::intrusive_ptr<torch::ivalue::Tuple> outputs;
 
-    std::vector<cv::Point> m_pts_nms;
+//    std::vector<cv::Point> m_pts_nms;
     at::Tensor m_desc;
     at::Tensor semi, coarse_desc;
 

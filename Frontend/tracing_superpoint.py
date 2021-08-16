@@ -48,15 +48,16 @@ def nms_fast(in_corners, H, W, dist_thresh):
     return out, out_inds
 
 net = SuperPointNet()
-net.load_state_dict(torch.load('superpoint_v1.pth'))
+net.load_state_dict(torch.load('/home/hoangqc/Datasets/Weights/superpoint_v1.pth'))
 net.cuda()
 
-W = 320
+W = 376
 H = 240
 cell = 8
-dist_thresh = 4
+dist_thresh = 8
+bord = 8
 
-img_path = './assets/icl_snippet/250.png'
+img_path = '/home/hoangqc/Datasets/VIODE/city_day_3_high/left/frame000000.png'
 img_gray = cv2.imread(img_path,0)
 img_gray = cv2.resize(img_gray, (W, H),interpolation=cv2.INTER_AREA)
 img_gray = (img_gray.astype('float32') / 255.)
@@ -100,8 +101,6 @@ pts, _ = nms_fast(pts, H, W, dist_thresh=dist_thresh)  # Apply NMS.
 e2 = cv2.getTickCount()
 print((e2-e1)/cv2.getTickFrequency())
 
-bord = 4
-
 toremoveW = np.logical_or(pts[0, :] < bord, pts[0, :] >= (W-bord))
 toremoveH = np.logical_or(pts[1, :] < bord, pts[1, :] >= (H-bord))
 toremove = np.logical_or(toremoveW, toremoveH)
@@ -119,3 +118,8 @@ samp_pts = samp_pts.float()
 desc = torch.nn.functional.grid_sample(coarse_desc, samp_pts)
 desc = desc.data.cpu().numpy().reshape(D, -1)
 desc /= np.linalg.norm(desc, axis=0)[np.newaxis, :]
+
+for i in range(0, pts.shape[1]):
+    print(i)
+    ...
+
