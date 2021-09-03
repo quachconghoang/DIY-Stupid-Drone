@@ -3,8 +3,8 @@ import torch.onnx
 
 from demo_superpoint import SuperPointFrontend, SuperPointNet
 
-WIDTH = 376
-HEIGHT = 240
+WIDTH = 512
+HEIGHT = 512
 
 model = SuperPointNet()
 state_dict = torch.load('superpoint_v1.pth')
@@ -16,4 +16,4 @@ dummy_input = torch.randn(1, 1, HEIGHT, WIDTH)
 
 traced_script_module = torch.jit.trace(model, dummy_input)
 output = traced_script_module(torch.ones(1, 1, HEIGHT, WIDTH))
-traced_script_module.save("superpoint_v1_376x240.pt")
+traced_script_module.save("superpoint_v1_512x512.pt")

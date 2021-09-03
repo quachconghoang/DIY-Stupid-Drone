@@ -14,7 +14,7 @@
 using namespace std;
 using namespace cv;
 
-cv::String modelPath = "../../models/superpoint_v1_376x240.pt";
+cv::String modelPath = "/home/hoangqc/Datasets/Weights/superpoint_v1_752x480.pt";
 Superpoint engine;
 
 int main()
@@ -24,8 +24,8 @@ int main()
 
     cout << "Hello Superpoint" << endl;
     vector<cv::String> fL, fR;
-    cv::glob("/home/hoangqc/Datasets/VIODE/city_day_3_high/left",fL,true);
-    cv::glob("/home/hoangqc/Datasets/VIODE/city_day_3_high/right",fR,true);
+    cv::glob("/home/hoangqc/Datasets/EuroC/MH/left",fL,true);
+    cv::glob("/home/hoangqc/Datasets/EuroC/MH/right",fR,true);
 
     for( int it = 0; it < fL.size()-1; it++)
     {
@@ -39,7 +39,12 @@ int main()
         engine.compute_NN(bgr_R);
         engine.getKeyPoints(kpts2,desc2);
 
-
+        for (int i = 0; i < kpts1.size() ; i++) {
+            cv::circle(bgr_L, kpts1[i].pt, 2, Scalar(0,128,255),2, FILLED);
+        }
+        for (int i = 0; i < kpts2.size() ; i++) {
+            cv::circle(bgr_R, kpts2[i].pt, 2, Scalar(0,255,255),2, FILLED);
+        }
 
         //-- Step 2: Matching descriptor vectors
         Ptr<DescriptorMatcher> matcher = BFMatcher::create(NORM_L2, true);
@@ -59,6 +64,7 @@ int main()
                 {
 //                    cv::circle(bgr_R, p2, 2, Scalar(255,0,0),1, FILLED);
                     cv::line(bgr_R,p1,p2,Scalar(0,255,0), 2);
+                    cv::circle(bgr_R, p2, 2, Scalar(0,255,0),2, FILLED);
                 }
 
             }
@@ -70,20 +76,14 @@ int main()
 //        drawMatches( bgr_L, kpts1, bgr_R, kpts2, bf_matches_good, img_matches );
         //-- Show detected matches
 //        imshow("Matches", img_matches );
-
-
-
-
 //        for (int i = 0; i < kpts1.size() ; i++) {
 //            cv::circle(bgr_L, kpts1[i].pt, 2, Scalar(255,0,0),2, FILLED);
 //        }
 //
-        for (int i = 0; i < kpts2.size() ; i++) {
-            cv::circle(bgr_R, kpts2[i].pt, 2, Scalar(255,0,0),2, FILLED);
-        }
-//        cv::imshow("left", bgr_L);
-        cv::imshow("right", bgr_R);
-        if(cv::waitKey(0)==27) break;
+
+        cv::imshow("Prev", bgr_L);
+        cv::imshow("Curr", bgr_R);
+        if(cv::waitKey(1)==27) break;
     }
 
     cv::destroyAllWindows();

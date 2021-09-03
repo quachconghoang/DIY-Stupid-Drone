@@ -52,9 +52,9 @@ void Superpoint::clear()
 void Superpoint::compute_NN(cv::Mat &bgr_img) {
     cv::Mat im_gray, im;
     cv::cvtColor(bgr_img, im_gray, cv::COLOR_BGR2GRAY);
-    cv::resize(im_gray, im, cv::Size(W, H), cv::INTER_LINEAR);
+//    cv::resize(im_gray, im, cv::Size(W, H), cv::INTER_LINEAR);
     torch::Tensor inp;
-    cvImg_to_tensor(im, inp);
+    cvImg_to_tensor(im_gray, inp);
 
     if(m_use_cuda) inputs.emplace_back(inp.cuda());
     else inputs.emplace_back(inp);
@@ -63,7 +63,6 @@ void Superpoint::compute_NN(cv::Mat &bgr_img) {
     if (m_use_cuda){
         semi = outputs->elements()[0].toTensor().to(at::kCPU).squeeze();
         coarse_desc = outputs->elements()[1].toTensor().to(at::kCPU);
-//        cout << coarse_desc.sizes();
     } else{
         semi = outputs->elements()[0].toTensor().squeeze();
         coarse_desc = outputs->elements()[1].toTensor().squeeze();
@@ -88,6 +87,8 @@ void Superpoint::getKeyPoints(std::vector<cv::KeyPoint> &kps, cv::Mat &desc) {
     heatmap = heatmap.transpose(1,2);
     heatmap = heatmap.reshape({Hc*cell, Wc*cell}); //HxW
 
+//    cout << coarse_desc.sizes() << " - " << heatmap.sizes() << "\n";// [1,256,30(8),47(8)]
+
     at::Tensor pts = (heatmap >= thres).nonzero();
     vector<at::Tensor> yx = pts.split(1,1);
     pts.transpose(0,1);
@@ -108,7 +109,7 @@ void Superpoint::getKeyPoints(std::vector<cv::KeyPoint> &kps, cv::Mat &desc) {
         sample_pts[i*2] = float(kps[i].pt.x)/W_2 - 1.f;
         sample_pts[i*2+1] = float(kps[i].pt.y)/H_2 - 1.f;
         //Update real scale
-        kps[i].pt = kps[i].pt*2;
+        kps[i].pt = kps[i].pt*scale;
     }
 
     at::Tensor sample_tensor = torch::from_blob(sample_pts.data(), {1, 1, num_pts, 2}, torch::TensorOptions().dtype(at::kFloat));

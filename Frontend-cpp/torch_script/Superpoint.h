@@ -16,15 +16,15 @@ class Superpoint_tracker{
 class Superpoint {
 
 public:
-    int raw_W = 752;
-    int raw_H = 480;
-    int W = 376; // 188
-    int H = 240; // 120
-    float scale = 2.f;
+//    int raw_W = 752;
+//    int raw_H = 480;
+    int W = 752; // 188
+    int H = 480; // 120
+    float scale = 1.f;
     const int cell = 8; //8
-    const int border_remove = 8; //4
-    float thres = 0.015f;
-    int dist_thresh = 8; //8
+    const int border_remove = 4; //4
+    float thres = 0.03f;
+    int dist_thresh = 16; //8
 
     bool m_debug = false;
     bool m_use_cuda = true;
