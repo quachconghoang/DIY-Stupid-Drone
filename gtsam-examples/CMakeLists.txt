@@ -15,16 +15,19 @@ find_package(GTSAM REQUIRED) # Uses installed package
 set(GTSAM_LIBRARIES gtsam)   # TODO: automatic search libs
 find_package(GTSAMCMakeTools)
 include(GtsamMakeConfigFile)
-include(GtsamBuildTypes)
-include(GtsamTesting)
+# include(GtsamBuildTypes)
+# include(GtsamTesting)
+include(GtsamPrinting)
 include(GtsamBuildTypes) # Load build type flags and default to Debug mode
+
+
 #include(GtsamMatlabWrap) # Automatic MATLAB wrapper generation
 
 include_directories(${GTSAM_INCLUDE_DIR})
 
 
 add_executable(helloGTSAM hello_gtsam.cpp)
-target_link_libraries(helloGTSAM "${TORCH_LIBRARIES}")
+target_link_libraries(helloGTSAM gtsam)
 
 #add_executable(test_superpoint Superpoint.cpp Superpoint.h test_Superpoint.cpp)
 #target_link_libraries(test_superpoint ${TORCH_LIBRARIES} ${OpenCV_LIBS})
