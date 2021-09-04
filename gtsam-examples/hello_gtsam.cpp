@@ -1,43 +1,41 @@
 #include <iostream>
-// #include <gtsam/precompiled_header.h>
-#include <gtsam/base/Lie.h>
-// #include <gtsam/base/chartTesting.h>
-#include <gtsam/base/cholesky.h>
-#include <gtsam/base/concepts.h>
-#include <gtsam/base/ConcurrentMap.h>
-#include <gtsam/base/debug.h>
-#include <gtsam/base/DSFVector.h>
-#include <gtsam/base/FastDefaultAllocator.h>
-#include <gtsam/base/FastList.h>
-#include <gtsam/base/FastMap.h>
-#include <gtsam/base/FastSet.h>
-#include <gtsam/base/FastVector.h>
-#include <gtsam/base/GenericValue.h>
-#include <gtsam/base/Group.h>
-#include <gtsam/base/Lie.h>
-#include <gtsam/base/lieProxies.h>
-#include <gtsam/base/Manifold.h>
-#include <gtsam/base/Matrix.h>
-#include <gtsam/base/OptionalJacobian.h>
-#include <gtsam/base/ProductLieGroup.h>
-#include <gtsam/base/serialization.h>
-#include <gtsam/base/serializationTestHelpers.h>
-#include <gtsam/base/SymmetricBlockMatrix.h>
-#include <gtsam/base/Testable.h>
-#include <gtsam/base/TestableAssertions.h>
-#include <gtsam/base/ThreadsafeException.h>
-#include <gtsam/base/timing.h>
-#include <gtsam/base/types.h>
-#include <gtsam/base/Value.h>
-#include <gtsam/base/Vector.h>
-#include <gtsam/base/VectorSpace.h>
-#include <gtsam/base/VerticalBlockMatrix.h>
+//#include <gtsam/precompiled_header.h>
 
 #include <gtsam/config.h>
+#include <gtsam/global_includes.h>
+
+#include <gtsam/geometry/Rot2.h>
+#include <gtsam/inference/Symbol.h>
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
+#include <gtsam/nonlinear/Values.h>
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+
+using namespace std;
+using namespace gtsam;
+const double degree = M_PI / 180;
 
 int main()
 {
     std::cout<< "HELLO - GTSAM";
+    //gtsam::assert_equal
+    /* 
+    
+    */
+    Rot2 prior = Rot2::fromAngle(30 * degree);
+    prior.print("goal angle: ");
+    auto model = noiseModel::Isotropic::Sigma(1, 1 * degree);
+    Symbol key('x', 1);
+
+    gtsam::NonlinearFactorGraph graph;
+    graph.addPrior(key, prior, model);
+    graph.print("full graph");
+
+    Values initial;
+    initial.insert(key, Rot2::fromAngle(20 * degree));
+    initial.print("initial estimate: ");
+
+    Values result = LevenbergMarquardtOptimizer(graph, initial).optimize();
+    result.print("final result: ");
 
     return 0;
 }
