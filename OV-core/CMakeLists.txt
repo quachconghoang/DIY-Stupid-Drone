@@ -15,13 +15,23 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 find_package( Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
+file(GLOB_RECURSE ELSED_LIB_SOURCES "ELSED/*.h")
+list(APPEND ELSED_LIB_SOURCES
+        ELSED/EdgeDrawer.cpp
+        ELSED/ELSED.cpp
+        ELSED/FullSegmentInfo.cpp)
+add_library(elsed ${ELSED_LIB_SOURCES})
+target_link_libraries(elsed ${OpenCV_LIBS})
+
+file(GLOB_RECURSE DNN_LIB_SOURCES "DNN/*.h" "DNN/*.hpp")
+list(APPEND DNN_LIB_SOURCES
+        DNN/Superpoint.cpp)
+add_library(mydnn ${DNN_LIB_SOURCES})
+target_link_libraries(mydnn ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+
 add_executable(graph_gen graph_gen.cpp)
-target_link_libraries(graph_gen "${TORCH_LIBRARIES}" ${OpenCV_LIBS})
+target_link_libraries(graph_gen elsed mydnn "${TORCH_LIBRARIES}" ${OpenCV_LIBS})
 set_property(TARGET graph_gen PROPERTY CXX_STANDARD 14)
 
-add_executable(vpi_demo vpi_demo.cpp)
-target_link_libraries(vpi_demo vpi ${OpenCV_LIBS})
-
-#add_executable(test_superpoint Superpoint.cpp Superpoint.h test_Superpoint.cpp)
-#target_link_libraries(test_superpoint ${TORCH_LIBRARIES} ${OpenCV_LIBS})
-#set_property(TARGET test_superpoint PROPERTY CXX_STANDARD 14)
+# add_executable(vpi_demo vpi_demo.cpp)
+# target_link_libraries(vpi_demo vpi ${OpenCV_LIBS})
