@@ -23,7 +23,7 @@ public:
     float scale = 1.f;
     const int cell = 8; //8
     const int border_remove = 4; //4
-    float thres = 0.03f;
+    float thres = 0.015f;
     int dist_thresh = 8; //8
 
     bool m_debug = false;

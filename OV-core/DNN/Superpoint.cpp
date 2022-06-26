@@ -3,14 +3,20 @@
 //
 
 #include "Superpoint.h"
-#include "anms.h"
+//#include "anms.h"
+#include "ANMS/anms.h"
 
 using namespace std;
 using namespace cv;
 
 void cvImg_to_tensor(const Mat & img, torch::Tensor & inp);
+
 vector<Point> nms_fast( const vector<at::Tensor> & yx, const at::Tensor & heat_vals, int H, int W, int dist_thresh, int _border_remove);
+
 void non_maximum_suppression(const vector<at::Tensor> & yx, const at::Tensor & heat_vals, std::vector<cv::KeyPoint> & kps, int H, int W, int dist_thresh, int _border);
+
+void adaptive_nms(const vector<at::Tensor> & yx, const at::Tensor & heat_vals, std::vector<cv::KeyPoint> & kps, int H, int W);
+
 cv::Mat tensor2d_to_mat(at::Tensor & tensor);
 
 Superpoint::Superpoint()
@@ -87,6 +93,7 @@ void Superpoint::getKeyPoints(std::vector<cv::KeyPoint> &kps, cv::Mat &desc) {
     at::Tensor heatmap = nodust.reshape({Hc, Wc, cell, cell});
     heatmap = heatmap.transpose(1,2);
     heatmap = heatmap.reshape({Hc*cell, Wc*cell}); //HxW
+//    cv::Mat mHeatMap = tensor2d_to_mat(heatmap);
 
     at::Tensor pts = (heatmap >= thres).nonzero();
     vector<at::Tensor> yx = pts.split(1,1);
@@ -96,7 +103,8 @@ void Superpoint::getKeyPoints(std::vector<cv::KeyPoint> &kps, cv::Mat &desc) {
     yx[0] = yx[0].squeeze().to(at::kInt);
     yx[1] = yx[1].squeeze().to(at::kInt);
     
-    non_maximum_suppression(yx,z,kps, H, W, dist_thresh, border_remove);
+//    non_maximum_suppression(yx,z,kps, H, W, dist_thresh, border_remove);
+    adaptive_nms(yx,z,kps, H, W);
 
     const long num_pts = kps.size();
     const long D = coarse_desc.size(1);
@@ -210,18 +218,6 @@ void Superpoint::run(cv::Mat & bgr_img)
     std::vector<float> v_tmp(m_desc.data_ptr<float>(), m_desc.data_ptr<float>() + m_desc.numel());
     cv::Mat temp(m_desc.size(0), m_desc.size(1),CV_32FC1, v_tmp.data());
     cv::Mat desc = temp.t();
-
-    if(m_debug)
-    {
-        for (int i = 0; i < m_pts_nms.size() ; i++) {
-            cv::circle(bgr_img, m_pts_nms[i]*2, 2, Scalar(255,0,0),2, FILLED);
-//            bgr_img.at<cv::Vec3b>(m_pts_nms[i]) = cv::Vec3b(255,0,0);
-        }
-        cv::imshow("test", bgr_img); //cv::waitKey(1);
-//        cv::imshow("desc", desc);
-    }
-
-
 }
 
 void cvImg_to_tensor(const Mat & img, torch::Tensor & inp)
@@ -231,6 +227,41 @@ void cvImg_to_tensor(const Mat & img, torch::Tensor & inp)
     inp = inp.to(at::kFloat)/255.f;
     inp = at::transpose(inp, 1, 2);
     inp = at::transpose(inp, 1, 3);
+}
+
+void adaptive_nms(const vector<at::Tensor> & yx, const at::Tensor & heat_vals, std::vector<cv::KeyPoint> & kps, int H, int W)
+{
+    auto sorted_rs = heat_vals.sort(0, true); // Tuple ...
+    auto sorted_indices = std::get<1>(sorted_rs);
+    auto sorted_values = std::get<0>(sorted_rs);
+
+    // Check for edge case of 0 or 1 corners.
+    int num_indicies = sorted_indices.size(0);
+    if(num_indicies == 0 || num_indicies == 1){
+        cout<< "No Feature Detected!";
+        return;
+    }
+
+    vector<int> vec_x_unordered(yx[1].data_ptr<int>(), yx[1].data_ptr<int>() + yx[1].numel());
+    vector<int> vec_y_unordered(yx[0].data_ptr<int>(), yx[0].data_ptr<int>() + yx[0].numel());
+    vector<float> vec_value_unodered(heat_vals.data_ptr<float>(), heat_vals.data_ptr<float>() + heat_vals.numel());
+    vector<int64> vec_indices(sorted_indices.data_ptr<int64>(), sorted_indices.data_ptr<int64>() + sorted_indices.numel());
+    vector<float> vec_value(sorted_values.data_ptr<float>(), sorted_values.data_ptr<float>() + sorted_values.numel());
+
+    vector<int> vec_x(num_indicies);
+    vector<int> vec_y(num_indicies);
+    vector<cv::KeyPoint> keyPointsSorted(num_indicies);
+
+    for (int i = 0; i < num_indicies; i++){
+        Point2f pt = Point2f(vec_x_unordered[vec_indices[i]], vec_y_unordered[vec_indices[i]]);
+        keyPointsSorted[i].pt = pt;
+        keyPointsSorted[i].response = vec_value[i];
+    }
+
+    std::cout<<"candidate = "<< num_indicies << std::endl;
+    int numRetPoints = 1000;
+    float tolerance = 0.1; // tolerance of the number of return points
+    kps = ssc(keyPointsSorted, numRetPoints, tolerance, W, H);
 }
 
 void non_maximum_suppression(const vector<at::Tensor> & yx, const at::Tensor & heat_vals, std::vector<cv::KeyPoint> & kps, int H, int W, int dist_thresh, int _border)

@@ -23,9 +23,14 @@ list(APPEND ELSED_LIB_SOURCES
 add_library(elsed ${ELSED_LIB_SOURCES})
 target_link_libraries(elsed ${OpenCV_LIBS})
 
-file(GLOB_RECURSE DNN_LIB_SOURCES "DNN/*.h" "DNN/*.hpp")
+file(GLOB_RECURSE DNN_LIB_SOURCES "DNN/*.h")
 list(APPEND DNN_LIB_SOURCES
-        DNN/Superpoint.cpp)
+        DNN/Superpoint.cpp
+        DNN/ANMS/anms.h
+        DNN/ANMS/nanoflann.hpp
+        DNN/ANMS/range-tree/lrtypes.h
+        DNN/ANMS/range-tree/ranget.h
+        )
 add_library(mydnn ${DNN_LIB_SOURCES})
 target_link_libraries(mydnn ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 
