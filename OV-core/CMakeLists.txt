@@ -31,7 +31,7 @@ list(APPEND DNN_LIB_SOURCES
         DNN/ANMS/range-tree/lrtypes.h
         DNN/ANMS/range-tree/ranget.h
         )
-add_library(mydnn ${DNN_LIB_SOURCES})
+add_library(mydnn ${DNN_LIB_SOURCES} DNN/GraphUtils.h)
 target_link_libraries(mydnn ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 
 add_executable(graph_gen graph_gen.cpp)

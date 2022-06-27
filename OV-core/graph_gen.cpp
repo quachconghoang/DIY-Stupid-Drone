@@ -5,8 +5,8 @@
 
 //#include <iostream>
 #include "ELSED/ELSED.h"
-#include <opencv2/line_descriptor.hpp>
 #include "DNN/Superpoint.h"
+#include "DNN/GraphUtils.h"
 
 
 using namespace cv;
@@ -34,34 +34,45 @@ inline void drawSalients(cv::Mat img, upm::SalientSegments segs, const cv::Scala
                  color, thickness, lineType, shift);
 }
 
-void getGradientMask(cv::Mat & image)
+int main()
 {
+    std::string home_dir = std::string(std::getenv("HOME"));
+//    std::string modelPath =  home_dir + "/Datasets/Weights/superpoint_v1_752x480.pt";
+    Mat image = cv::imread("../Data/viode_1.png");
+    GraphImgInfo g;
+    genGraphInfo(g,image);
 
+    imshow("SRC", g.src_viz);
+    imshow("PREVIEWS", g.debug_preview);
+//    imshow("Processing", g.graph_mask2D);
+    waitKey();
+    return 0;
 }
 
-int main()
+int main_temp()
 {
     std::string home_dir = std::string(std::getenv("HOME"));
     std::string modelPath =  home_dir + "/Datasets/Weights/superpoint_v1_752x480.pt";
     Superpoint engine;
     engine.init(modelPath, false,true);
     torch::NoGradGuard no_grad;
-
     std::vector<cv::KeyPoint> kpts1, kpts2;
     cv::Mat desc1, desc2;
 
 
     Mat image, src, src_blur, src_viz;
     Mat grad;
-    int ksize = 3;
-    int scale = 1;
-    int delta = 0;
-    int ddepth = CV_16S;
+    int ksize = 3, scale = 1, delta = 0, ddepth = CV_16S;
 
     image = cv::imread("../Data/viode_1.png");
 
     engine.compute_NN(image);
     engine.getKeyPoints(kpts1,desc1);
+
+    FileStorage fs("Keypoints.yml", FileStorage::WRITE);
+    write(fs, "keypoints_1", kpts1);
+    write(fs, "descriptors_1", desc1);
+    fs.release();
 
 
     cvtColor(image, src, COLOR_BGR2GRAY);
@@ -96,6 +107,7 @@ int main()
     cv::imshow("ELSED long", src_viz);
     cv::imshow("GRAD", grad);
     cv::waitKey();
+
 
 //    upm::ELSEDParams params;
 //    params.listJunctionSizes = {};
