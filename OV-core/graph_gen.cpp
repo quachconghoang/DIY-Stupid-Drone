@@ -10,6 +10,8 @@
 
 
 using namespace cv;
+using namespace std;
+
 
 inline void drawSegments(cv::Mat img, upm::Segments segs, const cv::Scalar &color,
              int thickness = 1, int lineType = cv::LINE_AA, int shift = 0) {
@@ -34,7 +36,21 @@ inline void drawSalients(cv::Mat img, upm::SalientSegments segs, const cv::Scala
                  color, thickness, lineType, shift);
 }
 
-int main()
+string windows_src = "SRC";
+
+void CallBackFunc(int event, int x, int y, int flags, void* userdata)
+{
+    GraphImgInfo info = *(GraphImgInfo *)userdata;
+    if  ( event == EVENT_LBUTTONDOWN )
+    {
+        imshow(windows_src, info.src_viz);
+    }
+    else if  ( event == EVENT_RBUTTONDOWN ){
+        cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+    }
+}
+
+int test_graph_visualization()
 {
     std::string home_dir = std::string(std::getenv("HOME"));
 //    std::string modelPath =  home_dir + "/Datasets/Weights/superpoint_v1_752x480.pt";
@@ -42,37 +58,57 @@ int main()
     GraphImgInfo g;
     genGraphInfo(g,image);
 
-    imshow("SRC", g.src_viz);
+    //Create a window
+//    namedWindow(windows_src, 1);
+    namedWindow("PREVIEWS", 1);
+    setMouseCallback("PREVIEWS", CallBackFunc, &g);
     imshow("PREVIEWS", g.debug_preview);
+
 //    imshow("Processing", g.graph_mask2D);
     waitKey();
     return 0;
 }
 
-int main_temp()
+int test_superpoint()
 {
     std::string home_dir = std::string(std::getenv("HOME"));
     std::string modelPath =  home_dir + "/Datasets/Weights/superpoint_v1_752x480.pt";
     Superpoint engine;
     engine.init(modelPath, false,true);
     torch::NoGradGuard no_grad;
-    std::vector<cv::KeyPoint> kpts1, kpts2;
-    cv::Mat desc1, desc2;
+    std::vector<cv::KeyPoint> kpts;
+    cv::Mat desc;
 
+    cv::Mat image, src, src_viz;
+    image = cv::imread("../Data/viode_1.png");
+    cvtColor(image, src, COLOR_BGR2GRAY);
+    cvtColor(src, src_viz, COLOR_GRAY2BGR);
 
+    engine.compute_NN(image);
+    engine.getKeyPoints(kpts,desc);
+
+    drawKeypoints(src_viz,kpts,src_viz,CV_RGB(255,255,0));
+    imshow(windows_src, src_viz);
+    waitKey();
+
+    FileStorage fs("../Data/tmp/Keypoints.yml", FileStorage::WRITE);
+    write(fs, "keypoints", kpts);
+    write(fs, "descriptors", desc);
+    fs.release();
+
+    return 0;
+}
+
+int test_edges()
+{
     Mat image, src, src_blur, src_viz;
     Mat grad;
     int ksize = 3, scale = 1, delta = 0, ddepth = CV_16S;
 
     image = cv::imread("../Data/viode_1.png");
 
-    engine.compute_NN(image);
-    engine.getKeyPoints(kpts1,desc1);
-
-    FileStorage fs("Keypoints.yml", FileStorage::WRITE);
-    write(fs, "keypoints_1", kpts1);
-    write(fs, "descriptors_1", desc1);
-    fs.release();
+//    std::vector<cv::String> paths;
+//    cv::glob("../Data/frames/",paths,true);
 
 
     cvtColor(image, src, COLOR_BGR2GRAY);
@@ -99,7 +135,7 @@ int main_temp()
     std::cout << "ELSED detected: " << segs.size() << " (large) segments" << std::endl;
     drawSegments(src_viz, segs, CV_RGB(0, 255, 0), 1);
 
-    cv::drawKeypoints(src_viz,kpts1,src_viz,CV_RGB(255,255,0));
+//    cv::drawKeypoints(src_viz,kpts,src_viz,CV_RGB(255,255,0));
 
 //    upm::SalientSegments salients = elsed.detectSalient(src);
 //    drawSalients(src_viz, salients, CV_RGB(255,0,0), 1);
@@ -107,7 +143,6 @@ int main_temp()
     cv::imshow("ELSED long", src_viz);
     cv::imshow("GRAD", grad);
     cv::waitKey();
-
 
 //    upm::ELSEDParams params;
 //    params.listJunctionSizes = {};
@@ -118,5 +153,11 @@ int main_temp()
 //    cv::imshow("ELSED short", src_viz);
 //    cv::waitKey();
 
+    return 0;
+}
+
+int main()
+{
+    test_superpoint();
     return 0;
 }

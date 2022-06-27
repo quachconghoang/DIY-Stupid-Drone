@@ -55,6 +55,9 @@ CATKIN_IGNORE
 .idea/
 .vs/
 
+# Dump Data
+# frames/
+# tmp/
 # CMake
 cmake-build-*/
 
