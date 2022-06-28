@@ -55,8 +55,22 @@ int test_graph_visualization()
     std::string home_dir = std::string(std::getenv("HOME"));
 //    std::string modelPath =  home_dir + "/Datasets/Weights/superpoint_v1_752x480.pt";
     Mat image = cv::imread("../Data/viode_1.png");
+
+    std::vector<cv::KeyPoint> kpts;
+    cv::Mat desc;
+    FileStorage fs("../Data/tmp/Keypoints.yml", FileStorage::READ);
+    read(fs["keypoints"], kpts);
+    read(fs["descriptors"], desc);
+    fs.release();
+
     GraphImgInfo g;
     genGraphInfo(g,image);
+    for(int i=0;i<kpts.size();i++)
+    {
+        cv::drawMarker(g.debug_preview, kpts[i].pt, CV_RGB(255,255,0), MARKER_CROSS, 5);
+        std::cout << i << ": " << kpts[i].response << std::endl;
+    }
+//    drawKeypoints(g.debug_preview,kpts,g.debug_preview,CV_RGB(255,255,0));
 
     //Create a window
 //    namedWindow(windows_src, 1);
@@ -158,6 +172,8 @@ int test_edges()
 
 int main()
 {
-    test_superpoint();
+//    test_superpoint();
+    test_graph_visualization();
     return 0;
+
 }
