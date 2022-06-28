@@ -52,13 +52,16 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 
 int test_graph_visualization()
 {
-    std::string home_dir = std::string(std::getenv("HOME"));
-//    std::string modelPath =  home_dir + "/Datasets/Weights/superpoint_v1_752x480.pt";
-    Mat image = cv::imread("../Data/viode_1.png");
+    std::vector<cv::String> img_paths, kps_paths;
+    cv::glob("../Data/frames/",img_paths,true);
+    cv::glob("../Data/tmp/",kps_paths,true);
+
+    int index = 60;
+    Mat image = cv::imread(img_paths[index]);
 
     std::vector<cv::KeyPoint> kpts;
     cv::Mat desc;
-    FileStorage fs("../Data/tmp/Keypoints.yml", FileStorage::READ);
+    FileStorage fs(kps_paths[index], FileStorage::READ);
     read(fs["keypoints"], kpts);
     read(fs["descriptors"], desc);
     fs.release();
@@ -110,6 +113,48 @@ int test_superpoint()
     write(fs, "descriptors", desc);
     fs.release();
 
+    return 0;
+}
+
+int test_superpoint_sequence()
+{
+    std::string home_dir = std::string(std::getenv("HOME"));
+    std::string modelPath =  home_dir + "/Datasets/Weights/superpoint_v1_752x480.pt";
+    Superpoint engine;
+    engine.init(modelPath, false,true);
+    torch::NoGradGuard no_grad;
+
+    std::vector<cv::String> paths;
+    cv::glob("../Data/frames/",paths,true);
+
+    for(int i=0; i < paths.size(); i++)
+    {
+        std::vector<cv::KeyPoint> kpts;
+        cv::Mat desc;
+        cv::Mat image, src, src_viz;
+
+        image = imread(paths[i]);
+        cvtColor(image, src, COLOR_BGR2GRAY);
+        cvtColor(src, src_viz, COLOR_GRAY2BGR);
+
+        engine.compute_NN(image);
+        engine.getKeyPoints(kpts,desc);
+
+
+        int index = 300+i;
+        std::string s = std::to_string(index);
+        s.insert(0, 6 - s.length(), '0');
+        std::string savePath = "../Data/tmp/Keypoints" + s + ".yml";
+        cout << savePath << endl;
+        FileStorage fs(savePath, FileStorage::WRITE);
+        write(fs, "keypoints", kpts);
+        write(fs, "descriptors", desc);
+        fs.release();
+
+        drawKeypoints(src_viz,kpts,src_viz,CV_RGB(255,255,0));
+        imshow(windows_src, src_viz);
+        waitKey(10);
+    }
     return 0;
 }
 
@@ -173,7 +218,7 @@ int test_edges()
 int main()
 {
 //    test_superpoint();
+//    test_superpoint_sequence();
     test_graph_visualization();
     return 0;
-
 }

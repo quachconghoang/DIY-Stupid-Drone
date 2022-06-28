@@ -127,6 +127,18 @@ void Superpoint::getKeyPoints(std::vector<cv::KeyPoint> &kps, cv::Mat &desc) {
     at::Tensor desc_norm = torch::norm(tmp_desc, 2, 0).unsqueeze(0);// Frobenius norm on channel 0
     tmp_desc = torch::div(tmp_desc, desc_norm);
     desc = tensor2d_to_mat(tmp_desc).t();
+
+//    samp_pts = torch.from_numpy(pts[:2, :].copy())
+//    samp_pts[0, :] = (samp_pts[0, :] / (float(W) / 2.)) - 1.
+//    samp_pts[1, :] = (samp_pts[1, :] / (float(H) / 2.)) - 1.
+//    samp_pts = samp_pts.transpose(0, 1).contiguous()
+//    samp_pts = samp_pts.view(1, 1, -1, 2)
+//    samp_pts = samp_pts.float()
+//    if self.cuda:
+//    samp_pts = samp_pts.cuda()
+//    desc = torch.nn.functional.grid_sample(coarse_desc, samp_pts)
+//    desc = desc.data.cpu().numpy().reshape(D, -1)
+//    desc /= np.linalg.norm(desc, axis=0)[np.newaxis, :]
 }
 
 void Superpoint::run(cv::Mat & bgr_img)
