@@ -43,7 +43,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
     GraphImgInfo info = *(GraphImgInfo *)userdata;
     if  ( event == EVENT_LBUTTONDOWN )
     {
-        imshow(windows_src, info.src_viz);
+        imshow(windows_src, info.grad);
     }
     else if  ( event == EVENT_RBUTTONDOWN ){
         cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
@@ -56,33 +56,36 @@ int test_graph_visualization()
     cv::glob("../Data/frames/",img_paths,true);
     cv::glob("../Data/tmp/",kps_paths,true);
 
-    int index = 60;
-    Mat image = cv::imread(img_paths[index]);
-
-    std::vector<cv::KeyPoint> kpts;
-    cv::Mat desc;
-    FileStorage fs(kps_paths[index], FileStorage::READ);
-    read(fs["keypoints"], kpts);
-    read(fs["descriptors"], desc);
-    fs.release();
-
-    GraphImgInfo g;
-    genGraphInfo(g,image);
-    for(int i=0;i<kpts.size();i++)
+    for (int index = 0; index < 90; ++index)
     {
-        cv::drawMarker(g.debug_preview, kpts[i].pt, CV_RGB(255,255,0), MARKER_CROSS, 5);
-        std::cout << i << ": " << kpts[i].response << std::endl;
-    }
+        Mat image = cv::imread(img_paths[index]);
+
+        std::vector<cv::KeyPoint> kpts;
+        cv::Mat desc;
+        FileStorage fs(kps_paths[index], FileStorage::READ);
+        read(fs["keypoints"], kpts);
+        read(fs["descriptors"], desc);
+        fs.release();
+
+        GraphImgInfo g;
+        genGraphInfo(g,image);
+        for(int i=0;i<kpts.size();i++)
+        {
+            cv::drawMarker(g.debug_preview, kpts[i].pt, CV_RGB(255,255,0), MARKER_CROSS, 5);
+//            std::cout << i << ": " << kpts[i].response << std::endl;
+        }
 //    drawKeypoints(g.debug_preview,kpts,g.debug_preview,CV_RGB(255,255,0));
 
-    //Create a window
+        //Create a window
 //    namedWindow(windows_src, 1);
-    namedWindow("PREVIEWS", 1);
-    setMouseCallback("PREVIEWS", CallBackFunc, &g);
-    imshow("PREVIEWS", g.debug_preview);
+        namedWindow("PREVIEWS", 1);
+        setMouseCallback("PREVIEWS", CallBackFunc, &g);
+        imshow("PREVIEWS", g.debug_preview);
 
 //    imshow("Processing", g.graph_mask2D);
-    waitKey();
+        waitKey();
+    }
+
     return 0;
 }
 
@@ -108,10 +111,10 @@ int test_superpoint()
     imshow(windows_src, src_viz);
     waitKey();
 
-    FileStorage fs("../Data/tmp/Keypoints.yml", FileStorage::WRITE);
-    write(fs, "keypoints", kpts);
-    write(fs, "descriptors", desc);
-    fs.release();
+//    FileStorage fs("../Data/tmp/Keypoints.yml", FileStorage::WRITE);
+//    write(fs, "keypoints", kpts);
+//    write(fs, "descriptors", desc);
+//    fs.release();
 
     return 0;
 }

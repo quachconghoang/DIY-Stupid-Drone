@@ -25,6 +25,7 @@ struct GraphImgInfo {
 
     //Processing struct
     cv::Mat graph_mask2D; //store masks for node & edges
+    cv::Mat grad;
 
 };
 
@@ -37,6 +38,24 @@ void drawGrids(cv::Mat & img, int step=8, cv::Scalar color= CV_RGB(255,0,0))
         cv::line(img, cv::Point(0,i*step), cv::Point(w,i*step), color); // horizontal
     for(uint j = 0; j < w_steps; j++)
         cv::line(img, cv::Point(j*step, 0), cv::Point(j*step,h), color); // vertical
+}
+
+void calculate_gradient(const cv::Mat & src_gray, cv::Mat & out)
+{
+    Mat grad, src_blur;
+    int ksize = 3, scale = 1, delta = 0, ddepth = CV_16S;
+
+    GaussianBlur(src_gray, src_blur, Size(3, 3), 0, 0, BORDER_DEFAULT);
+
+    Mat grad_x, grad_y;
+    Mat abs_grad_x, abs_grad_y;
+    Sobel(src_blur, grad_x, ddepth, 1, 0, ksize, scale, delta, BORDER_DEFAULT);
+    Sobel(src_blur, grad_y, ddepth, 0, 1, ksize, scale, delta, BORDER_DEFAULT);
+
+    // converting back to CV_8U
+    convertScaleAbs(grad_x, abs_grad_x);
+    convertScaleAbs(grad_y, abs_grad_y);
+    addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, out);
 }
 
 void genGraphInfo(GraphImgInfo & g, const cv::Mat & input)
@@ -57,7 +76,11 @@ void genGraphInfo(GraphImgInfo & g, const cv::Mat & input)
     cv::cvtColor(input, g.src_gray, cv::COLOR_BGR2GRAY);
     cv::cvtColor(g.src_gray, g.src_viz, cv::COLOR_GRAY2BGR);
     cv::addWeighted(g.src_viz, 1.0, g.mask_grid, 0.3, 0, g.debug_preview);
+
+    calculate_gradient(g.src_gray, g.grad);
 }
+
+
 
 
 
