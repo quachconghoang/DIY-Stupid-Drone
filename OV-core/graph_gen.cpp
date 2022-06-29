@@ -7,6 +7,7 @@
 #include "ELSED/ELSED.h"
 #include "DNN/Superpoint.h"
 #include "DNN/GraphUtils.h"
+#include "DNN/ANMS/anms.h"
 
 
 using namespace cv;
@@ -37,17 +38,85 @@ inline void drawSalients(cv::Mat img, upm::SalientSegments segs, const cv::Scala
 }
 
 string windows_src = "SRC";
+string windows_prev = "SOURCE";
+string windows_prev_target = "TARGET";
+
+GraphImgInfo * g_glob[2];
+
+static void on_trackbar( int, void* )
+{
+
+}
 
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
-    GraphImgInfo info = *(GraphImgInfo *)userdata;
+    GraphImgInfo g1 = *g_glob[0];//*(GraphImgInfo *)userdata;
+    GraphImgInfo g2 = *g_glob[1];
     if  ( event == EVENT_LBUTTONDOWN )
     {
-        imshow(windows_src, info.grad);
+        genInteraction(g1,g2, x,y);
+        imshow(windows_prev, g1.debug_preview);
+        imshow(windows_prev_target, g2.debug_preview);
+//        imshow(windows_src, info.grad);
     }
-    else if  ( event == EVENT_RBUTTONDOWN ){
-        cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+    else if  ( event == EVENT_RBUTTONDOWN )
+    {
+//        cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+        genInteraction(g1,g2);
+        imshow(windows_prev, g1.debug_preview);
     }
+}
+
+
+int test_graph()
+{
+    GraphImgInfo g1,g2;
+    g_glob[0] = &g1;
+    g_glob[1] = &g2;
+
+    Mat image = cv::imread("../Data/frame000300.png");
+    FileStorage fs("../Data/Keypoints000300.yml", FileStorage::READ);
+    read(fs["keypoints"], g1.kpts);
+    read(fs["descriptors"], g1.desc);
+
+    Mat image2 = cv::imread("../Data/frame000310.png");
+    FileStorage fs2("../Data/Keypoints000310.yml", FileStorage::READ);
+    read(fs2["keypoints"], g2.kpts);
+    read(fs2["descriptors"], g2.desc);
+
+    fs.release();
+
+    genGraphInfo(g1, image);
+    genGraphInfo(g2, image2);
+    genGraphCorrelation(g1,g2);
+//    Mat A,B;
+//    A = g1.desc;
+//    cv::transpose(g2.desc, B);
+//    Mat wtf = (A*B)<0.7;
+//    Mat des0 = g1.desc.row(250);
+//    for(int i=0; i<g1.kpts.size(); i++) {
+//        Mat des1 = g1.desc.row(i);
+//        double rs = cv::norm(des1,des0,NORM_L2);
+//        if(rs < 1.0)
+//        {
+//            cv::drawMarker(g1.src_viz, g1.kpts[i].pt, CV_RGB(0, 255, 0),
+//                           MARKER_CROSS, 9,2);
+//        }
+//    }
+//    cv::drawMarker(g1.src_viz, g1.kpts[200].pt, CV_RGB(255, 0, 0), MARKER_CROSS, 9,2);
+
+
+    namedWindow(windows_prev, 1);
+
+//    createTrackbar( "My TrackBar", windows_prev, 0, 10, on_trackbar );
+    setMouseCallback(windows_prev, CallBackFunc, &g1);
+//    imshow("GRAD", g1.grad);
+    imshow(windows_prev, g1.debug_preview);
+    imshow(windows_prev_target, g2.debug_preview);
+
+    int k = waitKey();
+
+    return 0;
 }
 
 int test_graph_visualization()
@@ -76,14 +145,12 @@ int test_graph_visualization()
         }
 //    drawKeypoints(g.debug_preview,kpts,g.debug_preview,CV_RGB(255,255,0));
 
-        //Create a window
-//    namedWindow(windows_src, 1);
         namedWindow("PREVIEWS", 1);
         setMouseCallback("PREVIEWS", CallBackFunc, &g);
         imshow("PREVIEWS", g.debug_preview);
 
-//    imshow("Processing", g.graph_mask2D);
-        waitKey();
+        int k = waitKey();
+        if (k==27) break;
     }
 
     return 0;
@@ -220,8 +287,9 @@ int test_edges()
 
 int main()
 {
+    test_graph();
 //    test_superpoint();
 //    test_superpoint_sequence();
-    test_graph_visualization();
+//    test_graph_visualization();
     return 0;
 }

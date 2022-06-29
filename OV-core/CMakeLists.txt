@@ -27,6 +27,7 @@ file(GLOB_RECURSE DNN_LIB_SOURCES "DNN/*.h")
 list(APPEND DNN_LIB_SOURCES
         DNN/Superpoint.cpp
         DNN/ANMS/anms.h
+        DNN/ANMS/anms.cpp
         DNN/ANMS/nanoflann.hpp
         DNN/ANMS/range-tree/lrtypes.h
         DNN/ANMS/range-tree/ranget.h
@@ -36,7 +37,7 @@ target_link_libraries(mydnn ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 
 add_executable(graph_gen graph_gen.cpp)
 target_link_libraries(graph_gen elsed mydnn "${TORCH_LIBRARIES}" ${OpenCV_LIBS})
-set_property(TARGET graph_gen PROPERTY CXX_STANDARD 14)
+#set_property(TARGET graph_gen PROPERTY CXX_STANDARD 14)
 
 # add_executable(vpi_demo vpi_demo.cpp)
 # target_link_libraries(vpi_demo vpi ${OpenCV_LIBS})
